@@ -38,6 +38,13 @@ jest.mock('../../db/products', () => ({
   deleteProduct: jest.fn(),
 }));
 
+jest.mock('../../context/AppContext', () => ({
+  useAppContext: () => ({
+    productFilterCategoryIds: [],
+    setProductFilterCategoryIds: jest.fn(),
+  }),
+}));
+
 import { getProducts, deleteProduct } from '../../db/products';
 
 describe('ProductGridScreen', () => {

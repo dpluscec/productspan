@@ -12,7 +12,8 @@ export interface StatsResult {
 }
 
 export function calculateDurationDays(startedAt: string, endedAt: string): number {
-  return (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 86400000;
+  const diff = (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 86400000;
+  return Math.max(1, diff);
 }
 
 export function calculateStats(

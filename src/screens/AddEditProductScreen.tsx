@@ -122,8 +122,8 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={headerHeight}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -184,7 +184,7 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: Platform.OS === 'ios' ? 40 : 120 },
   label: { fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
   row: { flexDirection: 'row', alignItems: 'center' },

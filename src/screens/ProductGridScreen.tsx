@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProductGridScreenProps } from '../navigation/types';
 import { deleteProduct, getProducts, ProductWithDetails } from '../db/products';
+import { useAppContext } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
 
 export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
   const db = useSQLiteContext();
+  const { productFilterCategoryIds } = useAppContext();
   const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -73,6 +75,8 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     );
   }, [selectedIds, db, exitSelectionMode, load]);
 
+  const filterActive = productFilterCategoryIds.length > 0;
+
   useEffect(() => {
     if (selectionMode) {
       navigation.setOptions({
@@ -92,10 +96,17 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
       navigation.setOptions({
         title: 'My Products',
         headerLeft: undefined,
-        headerRight: undefined,
+        headerRight: () => (
+          <TouchableOpacity style={{ marginRight: 8 }} onPress={() => navigation.navigate('ProductFilter')}>
+            <View>
+              <Ionicons name="filter-outline" size={24} color={filterActive ? '#1976d2' : '#555'} />
+              {filterActive ? <View style={styles.filterDot} /> : null}
+            </View>
+          </TouchableOpacity>
+        ),
       });
     }
-  }, [selectionMode, selectedIds, navigation, exitSelectionMode, handleDelete]);
+  }, [selectionMode, selectedIds, filterActive, navigation, exitSelectionMode, handleDelete]);
 
   useEffect(() => {
     if (!selectionMode) return;
@@ -106,12 +117,22 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     return unsubscribe;
   }, [selectionMode, navigation, exitSelectionMode]);
 
+  const visibleProducts = useMemo(() => {
+    if (!filterActive) return products;
+    const idSet = new Set(productFilterCategoryIds);
+    const includeUncategorized = idSet.has(-1);
+    return products.filter((p) =>
+      (includeUncategorized && p.category_id === null) ||
+      (p.category_id !== null && idSet.has(p.category_id))
+    );
+  }, [products, productFilterCategoryIds, filterActive]);
+
   if (loading) return <ActivityIndicator style={styles.center} size="large" />;
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={products}
+        data={visibleProducts}
         keyExtractor={(item) => String(item.id)}
         numColumns={2}
         renderItem={({ item }) => (
@@ -125,7 +146,9 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
         )}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>No products yet. Tap + to add one.</Text>
+          <Text style={styles.empty}>
+            {filterActive ? 'No products match the current filter.' : 'No products yet. Tap + to add one.'}
+          </Text>
         }
       />
       {!selectionMode ? (
@@ -145,6 +168,10 @@ const styles = StyleSheet.create({
   center: { flex: 1 },
   list: { padding: 6 },
   empty: { textAlign: 'center', marginTop: 60, color: '#888', fontSize: 15 },
+  filterDot: {
+    position: 'absolute', top: -2, right: -2,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#1976d2',
+  },
   fab: {
     position: 'absolute', right: 20, bottom: 24,
     width: 56, height: 56, borderRadius: 28,

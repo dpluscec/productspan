@@ -8,6 +8,10 @@ describe('calculateDurationDays', () => {
   it('returns 30 for a 30-day span', () => {
     expect(calculateDurationDays('2024-01-01', '2024-01-31')).toBeCloseTo(30, 5);
   });
+
+  it('returns 1 for same-day usage (start === end)', () => {
+    expect(calculateDurationDays('2024-01-01', '2024-01-01')).toBe(1);
+  });
 });
 
 describe('calculateStats', () => {

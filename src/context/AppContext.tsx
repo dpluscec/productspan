@@ -9,6 +9,8 @@ interface AppContextValue {
   packageUnits: PackageUnit[];
   refreshCategories: () => Promise<void>;
   refreshPackageUnits: () => Promise<void>;
+  productFilterCategoryIds: number[];
+  setProductFilterCategoryIds: (ids: number[]) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -17,6 +19,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
   const [categories, setCategories] = useState<Category[]>([]);
   const [packageUnits, setPackageUnits] = useState<PackageUnit[]>([]);
+  const [productFilterCategoryIds, setProductFilterCategoryIds] = useState<number[]>([]);
 
   const refreshCategories = useCallback(async () => {
     setCategories(await getCategories(db));
@@ -32,7 +35,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [refreshCategories, refreshPackageUnits]);
 
   return (
-    <AppContext.Provider value={{ categories, packageUnits, refreshCategories, refreshPackageUnits }}>
+    <AppContext.Provider value={{ categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, setProductFilterCategoryIds }}>
       {children}
     </AppContext.Provider>
   );

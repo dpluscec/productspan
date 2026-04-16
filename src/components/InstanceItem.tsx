@@ -13,9 +13,9 @@ interface Props {
 export function InstanceItem({ instance, basePrice, isCompleted, onStop, onEdit }: Props) {
   const effectivePrice = instance.price ?? basePrice;
   const duration = instance.ended_at
-    ? Math.round(
+    ? Math.max(1, Math.round(
         (new Date(instance.ended_at).getTime() - new Date(instance.started_at).getTime()) / 86400000
-      )
+      ))
     : null;
 
   return (

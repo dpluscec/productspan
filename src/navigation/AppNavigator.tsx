@@ -8,6 +8,7 @@ import { ProductGridScreen } from '../screens/ProductGridScreen';
 import { AddEditProductScreen } from '../screens/AddEditProductScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProductFilterScreen } from '../screens/ProductFilterScreen';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
@@ -22,6 +23,7 @@ function HomeStackNavigator() {
         options={({ route }) => ({ title: route.params.productId ? 'Edit Product' : 'Add Product' })}
       />
       <HomeStack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Product' }} />
+      <HomeStack.Screen name="ProductFilter" component={ProductFilterScreen} options={{ title: 'Filter' }} />
     </HomeStack.Navigator>
   );
 }

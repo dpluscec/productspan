@@ -12,7 +12,7 @@ const PRODUCT_SELECT = `
     p.*,
     c.name AS category_name,
     u.name AS package_unit_name,
-    COUNT(CASE WHEN pi.ended_at IS NULL THEN 1 END) AS active_instance_count
+    COUNT(CASE WHEN pi.id IS NOT NULL AND pi.ended_at IS NULL THEN 1 END) AS active_instance_count
   FROM products p
   LEFT JOIN categories c ON p.category_id = c.id
   LEFT JOIN package_units u ON p.package_unit_id = u.id
