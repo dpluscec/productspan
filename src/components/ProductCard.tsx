@@ -5,12 +5,17 @@ import { ProductWithDetails } from '../db/products';
 interface Props {
   product: ProductWithDetails;
   onPress: () => void;
-  onLongPress: () => void;
-  selectionMode: boolean;
-  selected: boolean;
+  onLongPress?: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
 }
 
-export function ProductCard({ product, onPress, onLongPress, selectionMode, selected }: Props) {
+export function ProductCard({
+  product, onPress,
+  onLongPress,
+  selectionMode = false,
+  selected = false,
+}: Props) {
   return (
     <TouchableOpacity style={[styles.card, selected && styles.cardSelected]} onPress={onPress} onLongPress={onLongPress}>
       {product.photo_uri ? (
