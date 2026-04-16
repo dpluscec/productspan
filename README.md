@@ -40,6 +40,56 @@ npm run ios       # iOS simulator (macOS only)
 npm run web       # Web browser
 ```
 
+## Building a standalone app (no Expo Go required)
+
+Two options for installing the app directly on your phone as a normal app.
+
+### Option A — EAS Build (cloud, no Android Studio needed)
+
+Builds in Expo's cloud and gives you a download link. Requires a free [Expo account](https://expo.dev).
+
+```bash
+npm install -g eas-cli
+eas login
+eas build:configure   # first time only — creates eas.json
+```
+
+Make sure `eas.json` has a `preview` profile that outputs an APK:
+
+```json
+{
+  "build": {
+    "preview": {
+      "android": { "buildType": "apk" }
+    }
+  }
+}
+```
+
+```bash
+eas build --platform android --profile preview
+```
+
+When the build finishes (~10–15 min), download the `.apk` from the link provided.
+
+### Option B — Local build with Android Studio
+
+Requires [Android Studio](https://developer.android.com/studio) installed (includes the Android SDK and Java 17).
+
+```bash
+npx expo prebuild --platform android
+cd android
+./gradlew assembleRelease
+```
+
+The APK is output to `android/app/build/outputs/apk/release/app-release.apk`.
+
+### Installing the APK on your phone
+
+Transfer the APK to your phone via USB cable, Google Drive, OneDrive, or email, then tap the file to install. On first install Android will prompt you to allow installation from unknown sources — tap **Settings → Allow from this source**.
+
+---
+
 ## Running Tests
 
 ```bash
