@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   list: { paddingVertical: 8 },
   sectionHeader: {
     fontSize: 12, fontWeight: '600', color: '#888', textTransform: 'uppercase',
-    letterSpacing: 0.8, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4,
+    letterSpacing: 0.8, paddingHorizontal: 20, paddingTop: 32, paddingBottom: 4,
   },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

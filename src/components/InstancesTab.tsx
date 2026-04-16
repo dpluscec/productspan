@@ -28,8 +28,8 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
   const [showEndPicker, setShowEndPicker] = useState(false);
 
   const load = useCallback(async () => {
-    setInstances(await getInstances(db, productId, showCompleted));
-  }, [db, productId, showCompleted]);
+    setInstances(await getInstances(db, productId, true));
+  }, [db, productId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -91,11 +91,13 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
             isCompleted={false} onStop={handleStop} onEdit={openEdit}
           />
         ))}
-        <TouchableOpacity style={styles.toggleBtn} onPress={() => setShowCompleted((v) => !v)}>
-          <Text style={styles.toggleText}>
-            {showCompleted ? 'Hide Completed' : 'Show Completed'}
-          </Text>
-        </TouchableOpacity>
+        {completed.length > 0 ? (
+          <TouchableOpacity style={styles.toggleBtn} onPress={() => setShowCompleted((v) => !v)}>
+            <Text style={styles.toggleText}>
+              {showCompleted ? 'Hide Completed' : 'Show Completed'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         {showCompleted && completed.map((inst) => (
           <InstanceItem
             key={inst.id} instance={inst} basePrice={basePrice}
