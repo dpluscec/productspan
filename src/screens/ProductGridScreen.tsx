@@ -95,7 +95,7 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     );
   }, [selectedIds, db, exitSelectionMode, load]);
 
-  const filterActive = productFilterCategoryIds.length > 0;
+  const filterActive = productFilterCategoryIds.length > 0 || productFilterActiveKeys.length > 0;
 
   useEffect(() => {
     if (selectionMode) {
