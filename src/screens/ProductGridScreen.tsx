@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, BackHandler, ToastAndroid, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
@@ -116,6 +116,22 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     });
     return unsubscribe;
   }, [selectionMode, navigation, exitSelectionMode]);
+
+  const lastBackPress = useRef<number>(0);
+  useFocusEffect(useCallback(() => {
+    if (Platform.OS !== 'android' || selectionMode) return;
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      const now = Date.now();
+      if (now - lastBackPress.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPress.current = now;
+      ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+      return true;
+    });
+    return () => handler.remove();
+  }, [selectionMode]));
 
   const visibleProducts = useMemo(() => {
     if (!filterActive) return products;
