@@ -40,6 +40,14 @@ npm run ios       # iOS simulator (macOS only)
 npm run web       # Web browser
 ```
 
+To run on a physical Android device with a debug build (requires Android Studio / SDK):
+
+```bash
+npx expo run:android --device
+```
+
+Connect your phone via USB with USB debugging enabled, and select it from the device list.
+
 ## Building a standalone app (no Expo Go required)
 
 Two options for installing the app directly on your phone as a normal app.
