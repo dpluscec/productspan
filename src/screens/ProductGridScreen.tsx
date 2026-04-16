@@ -16,7 +16,9 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
 
   const load = useCallback(() => {
     setLoading(true);
-    getProducts(db).then((p) => { setProducts(p); setLoading(false); });
+    getProducts(db)
+      .then((p) => { setProducts(p); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [db]);
 
   useFocusEffect(load);
@@ -57,9 +59,13 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
         {
           text: 'Delete', style: 'destructive',
           onPress: async () => {
-            await Promise.all([...selectedIds].map((id) => deleteProduct(db, id)));
-            exitSelectionMode();
-            load();
+            try {
+              await Promise.all([...selectedIds].map((id) => deleteProduct(db, id)));
+              exitSelectionMode();
+              load();
+            } catch {
+              Alert.alert('Error', 'Failed to delete. Please try again.');
+            }
           },
         },
       ]
@@ -76,7 +82,7 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
           </TouchableOpacity>
         ),
         headerRight: () => (
-          <TouchableOpacity onPress={handleDelete} style={{ marginRight: 8 }} disabled={selectedIds.size === 0}>
+          <TouchableOpacity testID="trash-button" onPress={handleDelete} style={{ marginRight: 8 }} disabled={selectedIds.size === 0}>
             <Ionicons name="trash-outline" size={24} color={selectedIds.size > 0 ? '#d32f2f' : '#ccc'} />
           </TouchableOpacity>
         ),

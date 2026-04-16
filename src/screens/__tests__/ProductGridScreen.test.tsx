@@ -34,8 +34,8 @@ const mockProducts = [
 ];
 
 jest.mock('../../db/products', () => ({
-  getProducts: jest.fn().mockResolvedValue(mockProducts),
-  deleteProduct: jest.fn().mockResolvedValue(undefined),
+  getProducts: jest.fn(),
+  deleteProduct: jest.fn(),
 }));
 
 import { getProducts, deleteProduct } from '../../db/products';
@@ -80,8 +80,12 @@ describe('ProductGridScreen', () => {
     fireEvent(getByText('Shampoo'), 'longPress');
 
     // Trigger delete via the header button captured in setOptions
-    const lastCall = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1][0];
-    lastCall.headerRight?.().props.onPress();
+    const pressTrashButton = () => {
+      const lastCall = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1][0];
+      const headerRight = lastCall.headerRight?.();
+      headerRight.props.onPress();
+    };
+    pressTrashButton();
 
     await waitFor(() => expect(deleteProduct).toHaveBeenCalledWith({}, 1));
     expect(getProducts).toHaveBeenCalledTimes(2); // initial load + reload after delete
