@@ -10,13 +10,11 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useAppContext } from '../context/AppContext';
 import { Category, PackageUnit } from '../db/schema';
 import {
-  addCategory, updateCategory, deleteCategory, isCategoryInUse,
+  addCategory, updateCategory, deleteCategory, isCategoryInUse, getCategories,
 } from '../db/categories';
 import {
-  addPackageUnit, updatePackageUnit, deletePackageUnit, isPackageUnitInUse,
+  addPackageUnit, updatePackageUnit, deletePackageUnit, isPackageUnitInUse, getPackageUnits,
 } from '../db/packageUnits';
-import { getCategories } from '../db/categories';
-import { getPackageUnits } from '../db/packageUnits';
 import { getProducts } from '../db/products';
 import { getInstances } from '../db/instances';
 import { serializeData, validateImportData } from '../utils/exportImport';
@@ -82,71 +80,124 @@ export function SettingsScreen() {
   };
 
   const handleExport = async () => {
-    const [cats, units, prods] = await Promise.all([
-      getCategories(db), getPackageUnits(db), getProducts(db),
-    ]);
-    const allInstances = (
-      await Promise.all(prods.map((p) => getInstances(db, p.id, true)))
-    ).flat();
-    const json = serializeData(cats, units, prods, allInstances);
-    const path = FileSystem.cacheDirectory + 'productspan-export.json';
-    await FileSystem.writeAsStringAsync(path, json, { encoding: FileSystem.EncodingType.UTF8 });
-    await Sharing.shareAsync(path, { mimeType: 'application/json', dialogTitle: 'Export ProductSpan data' });
+    try {
+      const [cats, units, prods] = await Promise.all([
+        getCategories(db), getPackageUnits(db), getProducts(db),
+      ]);
+      const allInstances = (
+        await Promise.all(prods.map((p) => getInstances(db, p.id, true)))
+      ).flat();
+      const json = serializeData(cats, units, prods, allInstances);
+      const path = FileSystem.cacheDirectory + 'productspan-export.json';
+      await FileSystem.writeAsStringAsync(path, json, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(path, { mimeType: 'application/json', dialogTitle: 'Export ProductSpan data' });
+    } catch (e: any) {
+      Alert.alert('Export Failed', e?.message ?? 'An unexpected error occurred.');
+    }
   };
 
   const handleImport = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
-    if (result.canceled) return;
-    const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
-    const data = validateImportData(content);
-    if (!data) {
-      Alert.alert('Import Failed', 'The file is not a valid ProductSpan export.');
-      return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
+      if (result.canceled) return;
+      const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const data = validateImportData(content);
+      if (!data) {
+        Alert.alert('Import Failed', 'The file is not a valid ProductSpan export.');
+        return;
+      }
+      Alert.alert('Import Data', 'How would you like to import?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Merge',
+          onPress: async () => {
+            try {
+              const catIdMap = new Map<number, number>();
+              for (const c of data.categories) {
+                try {
+                  const result = await db.runAsync('INSERT INTO categories (name) VALUES (?)', [c.name]);
+                  catIdMap.set(c.id, result.lastInsertRowId);
+                } catch {
+                  const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM categories WHERE name = ?', [c.name]);
+                  if (existing) catIdMap.set(c.id, existing.id);
+                }
+              }
+              const unitIdMap = new Map<number, number>();
+              for (const u of data.package_units) {
+                try {
+                  const result = await db.runAsync('INSERT INTO package_units (name) VALUES (?)', [u.name]);
+                  unitIdMap.set(u.id, result.lastInsertRowId);
+                } catch {
+                  const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM package_units WHERE name = ?', [u.name]);
+                  if (existing) unitIdMap.set(u.id, existing.id);
+                }
+              }
+              const productIdMap = new Map<number, number>();
+              for (const p of data.products) {
+                const result = await db.runAsync(
+                  'INSERT INTO products (name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?)',
+                  [
+                    p.name,
+                    p.category_id != null ? (catIdMap.get(p.category_id) ?? null) : null,
+                    p.photo_uri,
+                    p.package_amount,
+                    p.package_unit_id != null ? (unitIdMap.get(p.package_unit_id) ?? null) : null,
+                    p.base_price,
+                  ]
+                );
+                productIdMap.set(p.id, result.lastInsertRowId);
+              }
+              for (const i of data.product_instances) {
+                const newProductId = productIdMap.get(i.product_id);
+                if (newProductId == null) continue;
+                await db.runAsync(
+                  'INSERT INTO product_instances (product_id, started_at, ended_at, price) VALUES (?,?,?,?)',
+                  [newProductId, i.started_at, i.ended_at, i.price]
+                );
+              }
+              await refreshCategories();
+              await refreshPackageUnits();
+              Alert.alert('Done', 'Data merged successfully.');
+            } catch (e: any) {
+              Alert.alert('Import Failed', e?.message ?? 'An unexpected error occurred.');
+            }
+          },
+        },
+        {
+          text: 'Replace', style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.withTransactionAsync(async () => {
+                await db.execAsync(
+                  'DELETE FROM product_instances; DELETE FROM products; DELETE FROM categories; DELETE FROM package_units;'
+                );
+                for (const c of data.categories)
+                  await db.runAsync('INSERT INTO categories (id, name) VALUES (?,?)', [c.id, c.name]);
+                for (const u of data.package_units)
+                  await db.runAsync('INSERT INTO package_units (id, name) VALUES (?,?)', [u.id, u.name]);
+                for (const p of data.products)
+                  await db.runAsync(
+                    'INSERT INTO products (id, name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?,?)',
+                    [p.id, p.name, p.category_id, p.photo_uri, p.package_amount, p.package_unit_id, p.base_price]
+                  );
+                for (const i of data.product_instances)
+                  await db.runAsync(
+                    'INSERT INTO product_instances (id, product_id, started_at, ended_at, price) VALUES (?,?,?,?,?)',
+                    [i.id, i.product_id, i.started_at, i.ended_at, i.price]
+                  );
+              });
+              await refreshCategories();
+              await refreshPackageUnits();
+              Alert.alert('Done', 'Data replaced successfully.');
+            } catch (e: any) {
+              Alert.alert('Import Failed', e?.message ?? 'An unexpected error occurred.');
+            }
+          },
+        },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Import Failed', e?.message ?? 'An unexpected error occurred.');
     }
-    Alert.alert('Import Data', 'How would you like to import?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Merge',
-        onPress: async () => {
-          for (const c of data.categories) await addCategory(db, c.name);
-          for (const u of data.package_units) await addPackageUnit(db, u.name);
-          for (const p of data.products) {
-            await db.runAsync(
-              'INSERT INTO products (name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?)',
-              [p.name, p.category_id, p.photo_uri, p.package_amount, p.package_unit_id, p.base_price]
-            );
-          }
-          await refreshCategories();
-          await refreshPackageUnits();
-          Alert.alert('Done', 'Data merged successfully.');
-        },
-      },
-      {
-        text: 'Replace', style: 'destructive',
-        onPress: async () => {
-          await db.execAsync(
-            'DELETE FROM product_instances; DELETE FROM products; DELETE FROM categories; DELETE FROM package_units;'
-          );
-          for (const c of data.categories)
-            await db.runAsync('INSERT INTO categories (id, name) VALUES (?,?)', [c.id, c.name]);
-          for (const u of data.package_units)
-            await db.runAsync('INSERT INTO package_units (id, name) VALUES (?,?)', [u.id, u.name]);
-          for (const p of data.products)
-            await db.runAsync(
-              'INSERT INTO products (id, name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?,?)',
-              [p.id, p.name, p.category_id, p.photo_uri, p.package_amount, p.package_unit_id, p.base_price]
-            );
-          for (const i of data.product_instances)
-            await db.runAsync(
-              'INSERT INTO product_instances (id, product_id, started_at, ended_at, price) VALUES (?,?,?,?,?)',
-              [i.id, i.product_id, i.started_at, i.ended_at, i.price]
-            );
-          await refreshCategories();
-          await refreshPackageUnits();
-          Alert.alert('Done', 'Data replaced successfully.');
-        },
-      },
-    ]);
   };
 
   return (
@@ -177,25 +228,27 @@ export function SettingsScreen() {
 
       <Modal visible={!!editModal} transparent animationType="fade">
         <View style={styles.overlay}>
-          <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>
-              {editModal?.item
-                ? `Edit ${editModal.type === 'category' ? 'Category' : 'Unit'}`
-                : `Add ${editModal?.type === 'category' ? 'Category' : 'Unit'}`}
-            </Text>
-            <TextInput
-              style={styles.dialogInput} value={editName}
-              onChangeText={setEditName} autoFocus placeholder="Name"
-            />
-            <View style={styles.dialogActions}>
-              <TouchableOpacity onPress={() => setEditModal(null)} style={styles.cancelBtn}>
-                <Text>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={saveEdit} style={styles.saveBtn}>
-                <Text style={{ color: '#fff' }}>Save</Text>
-              </TouchableOpacity>
+          {editModal && (
+            <View style={styles.dialog}>
+              <Text style={styles.dialogTitle}>
+                {editModal.item
+                  ? `Edit ${editModal.type === 'category' ? 'Category' : 'Unit'}`
+                  : `Add ${editModal.type === 'category' ? 'Category' : 'Unit'}`}
+              </Text>
+              <TextInput
+                style={styles.dialogInput} value={editName}
+                onChangeText={setEditName} autoFocus placeholder="Name"
+              />
+              <View style={styles.dialogActions}>
+                <TouchableOpacity onPress={() => setEditModal(null)} style={styles.cancelBtn}>
+                  <Text>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={saveEdit} style={styles.saveBtn}>
+                  <Text style={{ color: '#fff' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       </Modal>
     </ScrollView>
