@@ -1,16 +1,34 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, BackHandler, ToastAndroid, Platform } from 'react-native';
+import {
+  View, FlatList, SectionList, TouchableOpacity, Text,
+  StyleSheet, Alert, ActivityIndicator, BackHandler, ToastAndroid, Platform,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProductGridScreenProps } from '../navigation/types';
 import { deleteProduct, getProducts, ProductWithDetails } from '../db/products';
 import { useAppContext } from '../context/AppContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { ProductCard } from '../components/ProductCard';
+import { ProductListRow } from '../components/ProductListRow';
+
+type GridRow = [ProductWithDetails, ProductWithDetails | null];
+type GridSection = { title: string; data: GridRow[] };
+type ListSection = { title: string; data: ProductWithDetails[] };
+
+function chunkPairs(arr: ProductWithDetails[]): GridRow[] {
+  const result: GridRow[] = [];
+  for (let i = 0; i < arr.length; i += 2) {
+    result.push([arr[i], arr[i + 1] ?? null]);
+  }
+  return result;
+}
 
 export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
   const db = useSQLiteContext();
   const { productFilterCategoryIds, productFilterActiveKeys } = useAppContext();
+  const { showImages, groupByCategory } = useAppSettings();
   const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -77,8 +95,7 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     );
   }, [selectedIds, db, exitSelectionMode, load]);
 
-  const filterActive =
-    productFilterCategoryIds.length > 0 || productFilterActiveKeys.length > 0;
+  const filterActive = productFilterCategoryIds.length > 0;
 
   useEffect(() => {
     if (selectionMode) {
@@ -142,48 +159,160 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
 
   const visibleProducts = useMemo(() => {
     let filtered = products;
-    if (productFilterCategoryIds.length > 0) {
-      const idSet = new Set(productFilterCategoryIds);
-      const includeUncategorized = idSet.has(-1);
-      filtered = filtered.filter((p) =>
-        (includeUncategorized && p.category_id === null) ||
-        (p.category_id !== null && idSet.has(p.category_id))
-      );
-    }
+
     if (productFilterActiveKeys.length > 0) {
-      const keySet = new Set(productFilterActiveKeys);
-      filtered = filtered.filter((p) =>
-        (keySet.has('active') && p.active_instance_count > 0) ||
-        (keySet.has('inactive') && p.active_instance_count === 0)
-      );
+      const showActive = productFilterActiveKeys.includes('active');
+      const showInactive = productFilterActiveKeys.includes('inactive');
+      filtered = filtered.filter((p) => {
+        const isActive = p.active_instance_count > 0;
+        return (isActive && showActive) || (!isActive && showInactive);
+      });
     }
-    return filtered;
-  }, [products, productFilterCategoryIds, productFilterActiveKeys]);
+
+    if (!filterActive) return filtered;
+    const idSet = new Set(productFilterCategoryIds);
+    const includeUncategorized = idSet.has(-1);
+    return filtered.filter((p) =>
+      (includeUncategorized && p.category_id === null) ||
+      (p.category_id !== null && idSet.has(p.category_id))
+    );
+  }, [products, productFilterCategoryIds, productFilterActiveKeys, filterActive]);
+
+  const gridSections = useMemo<GridSection[]>(() => {
+    if (!groupByCategory || !showImages) return [];
+    const map = new Map<number | null, { title: string; products: ProductWithDetails[] }>();
+    for (const p of visibleProducts) {
+      const key = p.category_id;
+      if (!map.has(key)) map.set(key, { title: p.category_name ?? 'Uncategorized', products: [] });
+      map.get(key)!.products.push(p);
+    }
+    const named = [...map.entries()]
+      .filter(([k]) => k !== null)
+      .sort(([, a], [, b]) => a.title.localeCompare(b.title))
+      .map(([, g]) => g);
+    const uncategorized = map.get(null);
+    return [...named, ...(uncategorized ? [uncategorized] : [])]
+      .map((g) => ({ title: g.title, data: chunkPairs(g.products) }));
+  }, [visibleProducts, groupByCategory, showImages]);
+
+  const listSections = useMemo<ListSection[]>(() => {
+    if (!groupByCategory || showImages) return [];
+    const map = new Map<number | null, { title: string; products: ProductWithDetails[] }>();
+    for (const p of visibleProducts) {
+      const key = p.category_id;
+      if (!map.has(key)) map.set(key, { title: p.category_name ?? 'Uncategorized', products: [] });
+      map.get(key)!.products.push(p);
+    }
+    const named = [...map.entries()]
+      .filter(([k]) => k !== null)
+      .sort(([, a], [, b]) => a.title.localeCompare(b.title))
+      .map(([, g]) => g);
+    const uncategorized = map.get(null);
+    return [...named, ...(uncategorized ? [uncategorized] : [])]
+      .map((g) => ({ title: g.title, data: g.products }));
+  }, [visibleProducts, groupByCategory, showImages]);
+
+  const emptyMsg = filterActive
+    ? 'No products match the current filter.'
+    : 'No products yet. Tap + to add one.';
+
+  const renderSectionHeader = useCallback(({ section }: { section: { title: string } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{section.title}</Text>
+    </View>
+  ), []);
 
   if (loading) return <ActivityIndicator style={styles.center} size="large" />;
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={visibleProducts}
-        keyExtractor={(item) => String(item.id)}
-        numColumns={2}
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(item.id)}
-            onPress={() => handlePress(item.id)}
-            onLongPress={() => handleLongPress(item.id)}
-          />
-        )}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {filterActive ? 'No products match the current filter.' : 'No products yet. Tap + to add one.'}
-          </Text>
-        }
-      />
+      {showImages && !groupByCategory && (
+        <FlatList
+          key="grid"
+          data={visibleProducts}
+          keyExtractor={(item) => String(item.id)}
+          numColumns={2}
+          renderItem={({ item }) => (
+            <ProductCard
+              product={item}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(item.id)}
+              onPress={() => handlePress(item.id)}
+              onLongPress={() => handleLongPress(item.id)}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.empty}>{emptyMsg}</Text>}
+        />
+      )}
+      {showImages && groupByCategory && (
+        <SectionList<GridRow, GridSection>
+          sections={gridSections}
+          keyExtractor={(item) => String(item[0].id)}
+          renderSectionHeader={renderSectionHeader}
+          renderItem={({ item }) => (
+            <View style={styles.gridRow}>
+              <ProductCard
+                product={item[0]}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(item[0].id)}
+                onPress={() => handlePress(item[0].id)}
+                onLongPress={() => handleLongPress(item[0].id)}
+              />
+              {item[1] ? (
+                <ProductCard
+                  product={item[1]}
+                  selectionMode={selectionMode}
+                  selected={selectedIds.has(item[1].id)}
+                  onPress={() => handlePress(item[1].id)}
+                  onLongPress={() => handleLongPress(item[1].id)}
+                />
+              ) : (
+                <View style={styles.gridPlaceholder} />
+              )}
+            </View>
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.empty}>{emptyMsg}</Text>}
+        />
+      )}
+      {!showImages && !groupByCategory && (
+        <FlatList
+          key="list"
+          data={visibleProducts}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <ProductListRow
+              product={item}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(item.id)}
+              onPress={() => handlePress(item.id)}
+              onLongPress={() => handleLongPress(item.id)}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.empty}>{emptyMsg}</Text>}
+        />
+      )}
+      {!showImages && groupByCategory && (
+        <SectionList<ProductWithDetails, ListSection>
+          sections={listSections}
+          keyExtractor={(item) => String(item.id)}
+          renderSectionHeader={renderSectionHeader}
+          renderItem={({ item }) => (
+            <ProductListRow
+              product={item}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(item.id)}
+              onPress={() => handlePress(item.id)}
+              onLongPress={() => handleLongPress(item.id)}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.empty}>{emptyMsg}</Text>}
+        />
+      )}
+
       {!selectionMode ? (
         <TouchableOpacity
           style={styles.fab}
@@ -211,4 +340,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1976d2', alignItems: 'center', justifyContent: 'center', elevation: 6,
   },
   fabText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  sectionHeader: {
+    backgroundColor: '#f0f0f0', paddingHorizontal: 12, paddingVertical: 6,
+  },
+  sectionHeaderText: { fontSize: 13, fontWeight: '700', color: '#555' },
+  gridRow: { flexDirection: 'row' },
+  gridPlaceholder: { flex: 1, margin: 6 },
 });

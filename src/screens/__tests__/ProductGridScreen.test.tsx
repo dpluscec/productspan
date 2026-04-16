@@ -40,6 +40,17 @@ jest.mock('../../db/products', () => ({
   deleteProduct: jest.fn(),
 }));
 
+jest.mock('../../context/AppSettingsContext', () => ({
+  useAppSettings: () => ({
+    showImages: true,
+    groupByCategory: false,
+    quickStartInstance: true,
+    setShowImages: jest.fn(),
+    setGroupByCategory: jest.fn(),
+    setQuickStartInstance: jest.fn(),
+  }),
+}));
+
 jest.mock('../../context/AppContext', () => ({
   useAppContext: jest.fn(() => ({
     productFilterCategoryIds: [],
