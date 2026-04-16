@@ -315,14 +315,16 @@ function ItemRow({ name, onEdit, onDelete }: { name: string; onEdit: () => void;
 function SettingRow({ label, value, onValueChange }: {
   label: string;
   value: boolean;
-  onValueChange: (v: boolean) => void;
+  onValueChange: (v: boolean) => Promise<void>;
 }) {
   return (
     <View style={styles.settingRow}>
       <Text style={styles.settingLabel}>{label}</Text>
       <Switch
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={(v) => {
+          onValueChange(v).catch(() => Alert.alert('Error', 'Failed to save setting.'));
+        }}
         trackColor={{ false: '#ccc', true: '#1976d2' }}
         thumbColor="#fff"
       />

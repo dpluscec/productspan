@@ -28,7 +28,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       setShowImagesState(img);
       setGroupByCategoryState(grp);
       setQuickStartInstanceState(qs);
-    }).catch(() => {});
+    }).catch((e) => { if (__DEV__) console.warn('AppSettings load failed', e); });
   }, [db]);
 
   const setShowImages = useCallback(async (v: boolean) => {
