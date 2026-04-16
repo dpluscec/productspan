@@ -8,6 +8,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ProductInstance } from '../db/schema';
 import { getInstances, addInstance, stopInstance, updateInstance } from '../db/instances';
 import { InstanceItem } from './InstanceItem';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 interface Props {
   productId: number;
@@ -17,6 +18,7 @@ interface Props {
 
 export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) {
   const db = useSQLiteContext();
+  const { quickStartInstance } = useAppSettings();
   const [instances, setInstances] = useState<ProductInstance[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -34,6 +36,13 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
   useEffect(() => { load(); }, [load]);
 
   const openAdd = () => {
+    if (quickStartInstance) {
+      const today = new Date().toISOString().split('T')[0];
+      addInstance(db, productId, today, basePrice)
+        .then(() => { load(); onRefreshProduct(); })
+        .catch(() => Alert.alert('Error', 'Failed to start instance. Please try again.'));
+      return;
+    }
     setEditingInstance(null);
     setFormStartDate(new Date());
     setFormEndDate(null);
@@ -107,14 +116,14 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
       </ScrollView>
 
       <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-        <Text style={styles.addBtnText}>+ Add Instance</Text>
+        <Text style={styles.addBtnText}>+ Start using</Text>
       </TouchableOpacity>
 
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>
-              {editingInstance ? 'Edit Instance' : 'Add Instance'}
+              {editingInstance ? 'Edit Instance' : 'Start using'}
             </Text>
 
             <Text style={styles.fieldLabel}>Start Date</Text>
