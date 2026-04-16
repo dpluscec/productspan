@@ -29,13 +29,11 @@ export interface ProductInstance {
 }
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
-  // PRAGMAs first, separate from DDL
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
   `);
 
-  // DDL separately
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,9 +62,13 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
       ended_at TEXT,
       price REAL
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
-  // Seed with INSERT OR IGNORE (idempotent, no COUNT check needed)
   await db.execAsync(`
     INSERT OR IGNORE INTO categories (name) VALUES ('Cosmetics');
     INSERT OR IGNORE INTO categories (name) VALUES ('Food');
@@ -79,5 +81,11 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
     INSERT OR IGNORE INTO package_units (name) VALUES ('kg');
     INSERT OR IGNORE INTO package_units (name) VALUES ('L');
     INSERT OR IGNORE INTO package_units (name) VALUES ('pcs');
+  `);
+
+  await db.execAsync(`
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('show_images', '0');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('group_by_category', '1');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('quick_start_instance', '1');
   `);
 }
