@@ -11,6 +11,8 @@ interface AppContextValue {
   refreshPackageUnits: () => Promise<void>;
   productFilterCategoryIds: number[];
   setProductFilterCategoryIds: (ids: number[]) => void;
+  productFilterActiveKeys: ('active' | 'inactive')[];
+  setProductFilterActiveKeys: (keys: ('active' | 'inactive')[]) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -20,6 +22,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [packageUnits, setPackageUnits] = useState<PackageUnit[]>([]);
   const [productFilterCategoryIds, setProductFilterCategoryIds] = useState<number[]>([]);
+  const [productFilterActiveKeys, setProductFilterActiveKeys] = useState<('active' | 'inactive')[]>([]);
 
   const refreshCategories = useCallback(async () => {
     setCategories(await getCategories(db));
@@ -35,8 +38,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [refreshCategories, refreshPackageUnits]);
 
   const value = useMemo(
-    () => ({ categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, setProductFilterCategoryIds }),
-    [categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds]
+    () => ({ categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, setProductFilterCategoryIds, productFilterActiveKeys, setProductFilterActiveKeys }),
+    [categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, productFilterActiveKeys]
   );
 
   return (
