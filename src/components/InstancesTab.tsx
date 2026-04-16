@@ -55,20 +55,28 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
     const startedAt = formStartDate.toISOString().split('T')[0];
     const endedAt = formEndDate ? formEndDate.toISOString().split('T')[0] : null;
     const price = formPrice ? parseFloat(formPrice) : null;
-    if (editingInstance) {
-      await updateInstance(db, editingInstance.id, startedAt, endedAt, price);
-    } else {
-      await addInstance(db, productId, startedAt, price);
+    try {
+      if (editingInstance) {
+        await updateInstance(db, editingInstance.id, startedAt, endedAt, price);
+      } else {
+        await addInstance(db, productId, startedAt, price);
+      }
+      setShowModal(false);
+      await load();
+      onRefreshProduct();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save instance. Please try again.');
     }
-    setShowModal(false);
-    await load();
-    onRefreshProduct();
   };
 
   const handleStop = async (id: number) => {
-    await stopInstance(db, id, new Date().toISOString().split('T')[0]);
-    await load();
-    onRefreshProduct();
+    try {
+      await stopInstance(db, id, new Date().toISOString().split('T')[0]);
+      await load();
+      onRefreshProduct();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to stop instance. Please try again.');
+    }
   };
 
   const active = instances.filter((i) => i.ended_at === null);

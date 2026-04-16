@@ -48,12 +48,16 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
       package_unit_id: packageUnitId,
       base_price: basePrice ? parseFloat(basePrice) : null,
     };
-    if (productId) {
-      await updateProduct(db, productId, product);
-    } else {
-      await addProduct(db, product);
+    try {
+      if (productId) {
+        await updateProduct(db, productId, product);
+      } else {
+        await addProduct(db, product);
+      }
+      navigation.goBack();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save product. Please try again.');
     }
-    navigation.goBack();
   };
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
