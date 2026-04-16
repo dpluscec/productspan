@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Alert, Modal,
+  StyleSheet, Alert, Modal, Switch,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useAppContext } from '../context/AppContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { Category, PackageUnit } from '../db/schema';
 import {
   addCategory, updateCategory, deleteCategory, isCategoryInUse, getCategories,
@@ -24,6 +25,7 @@ type EditModal = { type: 'category' | 'unit'; item: Category | PackageUnit | nul
 export function SettingsScreen() {
   const db = useSQLiteContext();
   const { categories, packageUnits, refreshCategories, refreshPackageUnits } = useAppContext();
+  const { showImages, groupByCategory, quickStartInstance, setShowImages, setGroupByCategory, setQuickStartInstance } = useAppSettings();
   const [editModal, setEditModal] = useState<EditModal>(null);
   const [editName, setEditName] = useState('');
 
@@ -213,6 +215,23 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <SectionHeader title="Display" />
+      <SettingRow
+        label="Show product images"
+        value={showImages}
+        onValueChange={(v) => setShowImages(v)}
+      />
+      <SettingRow
+        label="Group products by category"
+        value={groupByCategory}
+        onValueChange={(v) => setGroupByCategory(v)}
+      />
+      <SettingRow
+        label='Quick-start "Start using"'
+        value={quickStartInstance}
+        onValueChange={(v) => setQuickStartInstance(v)}
+      />
+
       <SectionHeader title="Categories" onAdd={() => openAdd('category')} />
       {categories.map((c) => (
         <ItemRow key={c.id} name={c.name}
@@ -293,6 +312,24 @@ function ItemRow({ name, onEdit, onDelete }: { name: string; onEdit: () => void;
   );
 }
 
+function SettingRow({ label, value, onValueChange }: {
+  label: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.settingRow}>
+      <Text style={styles.settingLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: '#ccc', true: '#1976d2' }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   content: { padding: 16 },
@@ -312,6 +349,11 @@ const styles = StyleSheet.create({
   actionDelete: { color: '#d32f2f' },
   dataBtn: { backgroundColor: '#fff', borderRadius: 10, padding: 14, marginBottom: 8, elevation: 1 },
   dataBtnText: { fontSize: 15, color: '#1976d2', fontWeight: '600' },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 4, elevation: 1,
+  },
+  settingLabel: { fontSize: 15, color: '#111', flex: 1, marginRight: 12 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   dialog: { backgroundColor: '#fff', borderRadius: 14, padding: 20, width: '80%' },
   dialogTitle: { fontSize: 17, fontWeight: '700', marginBottom: 12 },
