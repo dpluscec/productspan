@@ -10,7 +10,7 @@ import { ProductCard } from '../components/ProductCard';
 
 export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
   const db = useSQLiteContext();
-  const { productFilterCategoryIds } = useAppContext();
+  const { productFilterCategoryIds, productFilterActiveKeys } = useAppContext();
   const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -77,7 +77,8 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     );
   }, [selectedIds, db, exitSelectionMode, load]);
 
-  const filterActive = productFilterCategoryIds.length > 0;
+  const filterActive =
+    productFilterCategoryIds.length > 0 || productFilterActiveKeys.length > 0;
 
   useEffect(() => {
     if (selectionMode) {
@@ -140,14 +141,24 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
   }, [selectionMode, exitSelectionMode]));
 
   const visibleProducts = useMemo(() => {
-    if (!filterActive) return products;
-    const idSet = new Set(productFilterCategoryIds);
-    const includeUncategorized = idSet.has(-1);
-    return products.filter((p) =>
-      (includeUncategorized && p.category_id === null) ||
-      (p.category_id !== null && idSet.has(p.category_id))
-    );
-  }, [products, productFilterCategoryIds, filterActive]);
+    let filtered = products;
+    if (productFilterCategoryIds.length > 0) {
+      const idSet = new Set(productFilterCategoryIds);
+      const includeUncategorized = idSet.has(-1);
+      filtered = filtered.filter((p) =>
+        (includeUncategorized && p.category_id === null) ||
+        (p.category_id !== null && idSet.has(p.category_id))
+      );
+    }
+    if (productFilterActiveKeys.length > 0) {
+      const keySet = new Set(productFilterActiveKeys);
+      filtered = filtered.filter((p) =>
+        (keySet.has('active') && p.active_instance_count > 0) ||
+        (keySet.has('inactive') && p.active_instance_count === 0)
+      );
+    }
+    return filtered;
+  }, [products, productFilterCategoryIds, productFilterActiveKeys]);
 
   if (loading) return <ActivityIndicator style={styles.center} size="large" />;
 
