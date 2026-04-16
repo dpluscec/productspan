@@ -29,27 +29,31 @@ export interface ProductInstance {
 }
 
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
+  // PRAGMAs first, separate from DDL
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+  `);
 
+  // DDL separately
+  await db.execAsync(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL
+      name TEXT NOT NULL UNIQUE
     );
 
     CREATE TABLE IF NOT EXISTS package_units (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL
+      name TEXT NOT NULL UNIQUE
     );
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      category_id INTEGER REFERENCES categories(id),
+      category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
       photo_uri TEXT,
       package_amount REAL,
-      package_unit_id INTEGER REFERENCES package_units(id),
+      package_unit_id INTEGER REFERENCES package_units(id) ON DELETE SET NULL,
       base_price REAL
     );
 
@@ -62,27 +66,18 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
     );
   `);
 
-  const catCount = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM categories'
-  );
-  if ((catCount?.count ?? 0) === 0) {
-    await db.execAsync(`
-      INSERT INTO categories (name) VALUES ('Cosmetics');
-      INSERT INTO categories (name) VALUES ('Food');
-    `);
-  }
+  // Seed with INSERT OR IGNORE (idempotent, no COUNT check needed)
+  await db.execAsync(`
+    INSERT OR IGNORE INTO categories (name) VALUES ('Cosmetics');
+    INSERT OR IGNORE INTO categories (name) VALUES ('Food');
+  `);
 
-  const unitCount = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM package_units'
-  );
-  if ((unitCount?.count ?? 0) === 0) {
-    await db.execAsync(`
-      INSERT INTO package_units (name) VALUES ('g');
-      INSERT INTO package_units (name) VALUES ('ml');
-      INSERT INTO package_units (name) VALUES ('oz');
-      INSERT INTO package_units (name) VALUES ('kg');
-      INSERT INTO package_units (name) VALUES ('L');
-      INSERT INTO package_units (name) VALUES ('pcs');
-    `);
-  }
+  await db.execAsync(`
+    INSERT OR IGNORE INTO package_units (name) VALUES ('g');
+    INSERT OR IGNORE INTO package_units (name) VALUES ('ml');
+    INSERT OR IGNORE INTO package_units (name) VALUES ('oz');
+    INSERT OR IGNORE INTO package_units (name) VALUES ('kg');
+    INSERT OR IGNORE INTO package_units (name) VALUES ('L');
+    INSERT OR IGNORE INTO package_units (name) VALUES ('pcs');
+  `);
 }
