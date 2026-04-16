@@ -8,6 +8,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { AddEditProductScreenProps } from '../navigation/types';
 import { addProduct, getProduct, updateProduct } from '../db/products';
 import { useAppContext } from '../context/AppContext';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { PhotoPicker } from '../components/PhotoPicker';
 
 type SelectOption = { label: string; value: number };
@@ -64,6 +65,7 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
   const db = useSQLiteContext();
   const { categories, packageUnits } = useAppContext();
   const headerHeight = useHeaderHeight();
+  const { showImages } = useAppSettings();
   const productId = route.params?.productId;
 
   const [name, setName] = useState('');
@@ -134,7 +136,7 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <PhotoPicker uri={photoUri} onChange={setPhotoUri} />
+        {showImages ? <PhotoPicker uri={photoUri} onChange={setPhotoUri} /> : null}
 
         <Text style={styles.label}>Name *</Text>
         <TextInput
