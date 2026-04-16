@@ -129,9 +129,16 @@ export function InstancesTab({ productId, basePrice, onRefreshProduct }: Props) 
             {editingInstance ? (
               <>
                 <Text style={styles.fieldLabel}>End Date (optional)</Text>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
-                  <Text>{formEndDate ? formEndDate.toISOString().split('T')[0] : '— Not set —'}</Text>
-                </TouchableOpacity>
+                <View style={styles.dateRow}>
+                  <TouchableOpacity style={[styles.dateBtn, { flex: 1 }]} onPress={() => setShowEndPicker(true)}>
+                    <Text>{formEndDate ? formEndDate.toISOString().split('T')[0] : '— Not set —'}</Text>
+                  </TouchableOpacity>
+                  {formEndDate ? (
+                    <TouchableOpacity style={styles.clearDateBtn} onPress={() => setFormEndDate(null)}>
+                      <Text style={styles.clearDateBtnText}>✕</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
                 {showEndPicker && (
                   <DateTimePicker
                     value={formEndDate ?? new Date()} mode="date"
@@ -175,6 +182,9 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   fieldLabel: { fontSize: 13, fontWeight: '600', marginTop: 10, marginBottom: 4 },
   dateBtn: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  clearDateBtn: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  clearDateBtnText: { color: '#888', fontSize: 16 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },
   sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16, gap: 12 },
   cancelBtn: { padding: 10 },
