@@ -65,6 +65,7 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
               load();
             } catch {
               Alert.alert('Error', 'Failed to delete. Please try again.');
+              load();
             }
           },
         },
