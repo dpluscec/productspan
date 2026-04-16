@@ -28,7 +28,11 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
 
   const handleLongPress = useCallback((id: number) => {
     setSelectionMode(true);
-    setSelectedIds((prev) => new Set(prev).add(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
   }, []);
 
   const handlePress = useCallback((id: number) => {
@@ -85,6 +89,15 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
       });
     }
   }, [selectionMode, selectedIds, navigation, exitSelectionMode, handleDelete]);
+
+  useEffect(() => {
+    if (!selectionMode) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      exitSelectionMode();
+    });
+    return unsubscribe;
+  }, [selectionMode, navigation, exitSelectionMode]);
 
   if (loading) return <ActivityIndicator style={styles.center} size="large" />;
 

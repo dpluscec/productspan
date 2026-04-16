@@ -19,9 +19,13 @@ jest.mock('@react-navigation/native', () => ({
 
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
+const mockAddListener = jest.fn((event, callback) => {
+  return jest.fn(); // Return unsubscribe function
+});
 const mockNavigation = {
   navigate: mockNavigate,
   setOptions: mockSetOptions,
+  addListener: mockAddListener,
 };
 
 const mockProducts = [
