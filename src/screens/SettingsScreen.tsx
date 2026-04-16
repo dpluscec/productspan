@@ -39,18 +39,27 @@ export function SettingsScreen() {
 
   const saveEdit = async () => {
     if (!editName.trim() || !editModal) return;
-    if (editModal.type === 'category') {
-      editModal.item
-        ? await updateCategory(db, editModal.item.id, editName.trim())
-        : await addCategory(db, editName.trim());
-      await refreshCategories();
-    } else {
-      editModal.item
-        ? await updatePackageUnit(db, editModal.item.id, editName.trim())
-        : await addPackageUnit(db, editName.trim());
-      await refreshPackageUnits();
+    try {
+      if (editModal.type === 'category') {
+        editModal.item
+          ? await updateCategory(db, editModal.item.id, editName.trim())
+          : await addCategory(db, editName.trim());
+        await refreshCategories();
+      } else {
+        editModal.item
+          ? await updatePackageUnit(db, editModal.item.id, editName.trim())
+          : await addPackageUnit(db, editName.trim());
+        await refreshPackageUnits();
+      }
+      setEditModal(null);
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      if (msg.includes('UNIQUE') || msg.includes('unique')) {
+        Alert.alert('Duplicate Name', `"${editName.trim()}" already exists.`);
+      } else {
+        Alert.alert('Error', 'Failed to save. Please try again.');
+      }
     }
-    setEditModal(null);
   };
 
   const handleDelete = async (type: 'category' | 'unit', item: Category | PackageUnit) => {
@@ -112,49 +121,51 @@ export function SettingsScreen() {
           text: 'Merge',
           onPress: async () => {
             try {
-              const catIdMap = new Map<number, number>();
-              for (const c of data.categories) {
-                try {
-                  const result = await db.runAsync('INSERT INTO categories (name) VALUES (?)', [c.name]);
-                  catIdMap.set(c.id, result.lastInsertRowId);
-                } catch {
-                  const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM categories WHERE name = ?', [c.name]);
-                  if (existing) catIdMap.set(c.id, existing.id);
+              await db.withTransactionAsync(async () => {
+                const catIdMap = new Map<number, number>();
+                for (const c of data.categories) {
+                  try {
+                    const result = await db.runAsync('INSERT INTO categories (name) VALUES (?)', [c.name]);
+                    catIdMap.set(c.id, result.lastInsertRowId);
+                  } catch {
+                    const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM categories WHERE name = ?', [c.name]);
+                    if (existing) catIdMap.set(c.id, existing.id);
+                  }
                 }
-              }
-              const unitIdMap = new Map<number, number>();
-              for (const u of data.package_units) {
-                try {
-                  const result = await db.runAsync('INSERT INTO package_units (name) VALUES (?)', [u.name]);
-                  unitIdMap.set(u.id, result.lastInsertRowId);
-                } catch {
-                  const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM package_units WHERE name = ?', [u.name]);
-                  if (existing) unitIdMap.set(u.id, existing.id);
+                const unitIdMap = new Map<number, number>();
+                for (const u of data.package_units) {
+                  try {
+                    const result = await db.runAsync('INSERT INTO package_units (name) VALUES (?)', [u.name]);
+                    unitIdMap.set(u.id, result.lastInsertRowId);
+                  } catch {
+                    const existing = await db.getFirstAsync<{ id: number }>('SELECT id FROM package_units WHERE name = ?', [u.name]);
+                    if (existing) unitIdMap.set(u.id, existing.id);
+                  }
                 }
-              }
-              const productIdMap = new Map<number, number>();
-              for (const p of data.products) {
-                const result = await db.runAsync(
-                  'INSERT INTO products (name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?)',
-                  [
-                    p.name,
-                    p.category_id != null ? (catIdMap.get(p.category_id) ?? null) : null,
-                    p.photo_uri,
-                    p.package_amount,
-                    p.package_unit_id != null ? (unitIdMap.get(p.package_unit_id) ?? null) : null,
-                    p.base_price,
-                  ]
-                );
-                productIdMap.set(p.id, result.lastInsertRowId);
-              }
-              for (const i of data.product_instances) {
-                const newProductId = productIdMap.get(i.product_id);
-                if (newProductId == null) continue;
-                await db.runAsync(
-                  'INSERT INTO product_instances (product_id, started_at, ended_at, price) VALUES (?,?,?,?)',
-                  [newProductId, i.started_at, i.ended_at, i.price]
-                );
-              }
+                const productIdMap = new Map<number, number>();
+                for (const p of data.products) {
+                  const result = await db.runAsync(
+                    'INSERT INTO products (name, category_id, photo_uri, package_amount, package_unit_id, base_price) VALUES (?,?,?,?,?,?)',
+                    [
+                      p.name,
+                      p.category_id != null ? (catIdMap.get(p.category_id) ?? null) : null,
+                      p.photo_uri,
+                      p.package_amount,
+                      p.package_unit_id != null ? (unitIdMap.get(p.package_unit_id) ?? null) : null,
+                      p.base_price,
+                    ]
+                  );
+                  productIdMap.set(p.id, result.lastInsertRowId);
+                }
+                for (const i of data.product_instances) {
+                  const newProductId = productIdMap.get(i.product_id);
+                  if (newProductId == null) continue;
+                  await db.runAsync(
+                    'INSERT INTO product_instances (product_id, started_at, ended_at, price) VALUES (?,?,?,?)',
+                    [newProductId, i.started_at, i.ended_at, i.price]
+                  );
+                }
+              });
               await refreshCategories();
               await refreshPackageUnits();
               Alert.alert('Done', 'Data merged successfully.');
@@ -226,7 +237,7 @@ export function SettingsScreen() {
         <Text style={styles.dataBtnText}>Import Data (JSON)</Text>
       </TouchableOpacity>
 
-      <Modal visible={!!editModal} transparent animationType="fade">
+      <Modal visible={!!editModal} transparent animationType="fade" onRequestClose={() => setEditModal(null)}>
         <View style={styles.overlay}>
           {editModal && (
             <View style={styles.dialog}>

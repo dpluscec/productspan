@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Category, PackageUnit } from '../db/schema';
 import { getCategories } from '../db/categories';
@@ -30,12 +30,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [db]);
 
   useEffect(() => {
-    refreshCategories();
-    refreshPackageUnits();
+    refreshCategories().catch(() => {});
+    refreshPackageUnits().catch(() => {});
   }, [refreshCategories, refreshPackageUnits]);
 
+  const value = useMemo(
+    () => ({ categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, setProductFilterCategoryIds }),
+    [categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds]
+  );
+
   return (
-    <AppContext.Provider value={{ categories, packageUnits, refreshCategories, refreshPackageUnits, productFilterCategoryIds, setProductFilterCategoryIds }}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProductDetailScreenProps } from '../navigation/types';
@@ -17,9 +17,14 @@ export function ProductDetailScreen({ route, navigation }: ProductDetailScreenPr
   const [loading, setLoading] = useState(true);
 
   const loadProduct = useCallback(async () => {
-    const p = await getProduct(db, productId);
-    setProduct(p);
-    setLoading(false);
+    try {
+      const p = await getProduct(db, productId);
+      setProduct(p);
+    } catch {
+      Alert.alert('Error', 'Failed to load product.');
+    } finally {
+      setLoading(false);
+    }
   }, [db, productId]);
 
   useFocusEffect(useCallback(() => { loadProduct(); }, [loadProduct]));

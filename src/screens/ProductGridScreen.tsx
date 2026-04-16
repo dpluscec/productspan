@@ -62,7 +62,9 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
           text: 'Delete', style: 'destructive',
           onPress: async () => {
             try {
-              await Promise.all([...selectedIds].map((id) => deleteProduct(db, id)));
+              await db.withTransactionAsync(async () => {
+                for (const id of selectedIds) await deleteProduct(db, id);
+              });
               exitSelectionMode();
               load();
             } catch {
@@ -119,8 +121,12 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
 
   const lastBackPress = useRef<number>(0);
   useFocusEffect(useCallback(() => {
-    if (Platform.OS !== 'android' || selectionMode) return;
+    if (Platform.OS !== 'android') return;
     const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectionMode) {
+        exitSelectionMode();
+        return true;
+      }
       const now = Date.now();
       if (now - lastBackPress.current < 2000) {
         BackHandler.exitApp();
@@ -131,7 +137,7 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
       return true;
     });
     return () => handler.remove();
-  }, [selectionMode]));
+  }, [selectionMode, exitSelectionMode]));
 
   const visibleProducts = useMemo(() => {
     if (!filterActive) return products;

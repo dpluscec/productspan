@@ -77,17 +77,22 @@ export function AddEditProductScreen({ route, navigation }: AddEditProductScreen
 
   useEffect(() => {
     if (!productId) return;
-    getProduct(db, productId).then((p) => {
-      if (p) {
-        setName(p.name);
-        setCategoryId(p.category_id);
-        setPhotoUri(p.photo_uri);
-        setPackageAmount(p.package_amount != null ? String(p.package_amount) : '');
-        setPackageUnitId(p.package_unit_id);
-        setBasePrice(p.base_price != null ? String(p.base_price) : '');
-      }
-      setLoading(false);
-    });
+    getProduct(db, productId)
+      .then((p) => {
+        if (p) {
+          setName(p.name);
+          setCategoryId(p.category_id);
+          setPhotoUri(p.photo_uri);
+          setPackageAmount(p.package_amount != null ? String(p.package_amount) : '');
+          setPackageUnitId(p.package_unit_id);
+          setBasePrice(p.base_price != null ? String(p.base_price) : '');
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Failed to load product.');
+        setLoading(false);
+      });
   }, [productId, db]);
 
   const save = async () => {
