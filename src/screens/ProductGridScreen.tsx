@@ -95,7 +95,8 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
     );
   }, [selectedIds, db, exitSelectionMode, load]);
 
-  const filterActive = productFilterCategoryIds.length > 0 || productFilterActiveKeys.length > 0;
+  const categoryFilterActive = productFilterCategoryIds.length > 0;
+  const filterActive = categoryFilterActive || productFilterActiveKeys.length > 0;
 
   useEffect(() => {
     if (selectionMode) {
@@ -169,14 +170,14 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
       });
     }
 
-    if (!filterActive) return filtered;
+    if (!categoryFilterActive) return filtered;
     const idSet = new Set(productFilterCategoryIds);
     const includeUncategorized = idSet.has(-1);
     return filtered.filter((p) =>
       (includeUncategorized && p.category_id === null) ||
       (p.category_id !== null && idSet.has(p.category_id))
     );
-  }, [products, productFilterCategoryIds, productFilterActiveKeys, filterActive]);
+  }, [products, productFilterCategoryIds, productFilterActiveKeys, categoryFilterActive]);
 
   const gridSections = useMemo<GridSection[]>(() => {
     if (!groupByCategory || !showImages) return [];
