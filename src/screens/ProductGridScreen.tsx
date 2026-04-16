@@ -1,22 +1,90 @@
-import React, { useCallback, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, FlatList, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProductGridScreenProps } from '../navigation/types';
-import { getProducts, ProductWithDetails } from '../db/products';
+import { deleteProduct, getProducts, ProductWithDetails } from '../db/products';
 import { ProductCard } from '../components/ProductCard';
 
 export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
   const db = useSQLiteContext();
   const [products, setProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      getProducts(db).then((p) => { setProducts(p); setLoading(false); });
-    }, [db])
-  );
+  const load = useCallback(() => {
+    setLoading(true);
+    getProducts(db).then((p) => { setProducts(p); setLoading(false); });
+  }, [db]);
+
+  useFocusEffect(load);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleLongPress = useCallback((id: number) => {
+    setSelectionMode(true);
+    setSelectedIds((prev) => new Set(prev).add(id));
+  }, []);
+
+  const handlePress = useCallback((id: number) => {
+    if (selectionMode) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) { next.delete(id); } else { next.add(id); }
+        return next;
+      });
+    } else {
+      navigation.navigate('ProductDetail', { productId: id });
+    }
+  }, [selectionMode, navigation]);
+
+  const handleDelete = useCallback(() => {
+    const count = selectedIds.size;
+    Alert.alert(
+      `Delete ${count} product${count === 1 ? '' : 's'}?`,
+      'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            await Promise.all([...selectedIds].map((id) => deleteProduct(db, id)));
+            exitSelectionMode();
+            load();
+          },
+        },
+      ]
+    );
+  }, [selectedIds, db, exitSelectionMode, load]);
+
+  useEffect(() => {
+    if (selectionMode) {
+      navigation.setOptions({
+        title: `${selectedIds.size} selected`,
+        headerLeft: () => (
+          <TouchableOpacity onPress={exitSelectionMode} style={{ marginLeft: 8 }}>
+            <Text style={{ color: '#1976d2', fontSize: 16 }}>Cancel</Text>
+          </TouchableOpacity>
+        ),
+        headerRight: () => (
+          <TouchableOpacity onPress={handleDelete} style={{ marginRight: 8 }} disabled={selectedIds.size === 0}>
+            <Ionicons name="trash-outline" size={24} color={selectedIds.size > 0 ? '#d32f2f' : '#ccc'} />
+          </TouchableOpacity>
+        ),
+      });
+    } else {
+      navigation.setOptions({
+        title: 'My Products',
+        headerLeft: undefined,
+        headerRight: undefined,
+      });
+    }
+  }, [selectionMode, selectedIds, navigation, exitSelectionMode, handleDelete]);
 
   if (loading) return <ActivityIndicator style={styles.center} size="large" />;
 
@@ -29,7 +97,10 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
         renderItem={({ item }) => (
           <ProductCard
             product={item}
-            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+            selectionMode={selectionMode}
+            selected={selectedIds.has(item.id)}
+            onPress={() => handlePress(item.id)}
+            onLongPress={() => handleLongPress(item.id)}
           />
         )}
         contentContainerStyle={styles.list}
@@ -37,12 +108,14 @@ export function ProductGridScreen({ navigation }: ProductGridScreenProps) {
           <Text style={styles.empty}>No products yet. Tap + to add one.</Text>
         }
       />
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('AddEditProduct', {})}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      {!selectionMode ? (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('AddEditProduct', {})}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
