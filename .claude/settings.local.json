@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx expo *)",
-      "Bash(npx jest *)",
-      "Bash(npm install *)"
-    ]
-  }
-}
